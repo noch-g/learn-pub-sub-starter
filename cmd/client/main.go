@@ -20,7 +20,7 @@ func main() {
 	defer conn.Close()
 	fmt.Printf("connection to RabbitMQ was successful\n")
 
-	channel, err := conn.Channel()
+	publishCh, err := conn.Channel()
 	if err != nil {
 		log.Fatal(fmt.Errorf("channel could not be created"))
 	}
@@ -31,8 +31,39 @@ func main() {
 	}
 
 	gs := gamelogic.NewGameState(username)
-	pubsub.SubscribeJSON(conn, routing.ExchangePerilDirect, routing.PauseKey+"."+username, routing.PauseKey, pubsub.SimpleQueueTransient, handlerPause(gs))
-	pubsub.SubscribeJSON(conn, routing.ExchangePerilTopic, routing.ArmyMovesPrefix+"."+username, routing.ArmyMovesPrefix+".*", pubsub.SimpleQueueTransient, handlerMove(gs))
+	err = pubsub.SubscribeJSON(
+		conn,
+		routing.ExchangePerilTopic,
+		routing.ArmyMovesPrefix+"."+gs.GetUsername(),
+		routing.ArmyMovesPrefix+".*",
+		pubsub.SimpleQueueTransient,
+		handlerMove(gs, publishCh),
+	)
+	if err != nil {
+		fmt.Printf("could not subscribe to army moves: %v", err)
+	}
+	pubsub.SubscribeJSON(
+		conn,
+		routing.ExchangePerilTopic,
+		routing.WarRecognitionsPrefix,
+		routing.WarRecognitionsPrefix+".*",
+		pubsub.SimpleQueueDurable,
+		handlerWar(gs),
+	)
+	if err != nil {
+		fmt.Printf("could not subscribe to war declarations: %v", err)
+	}
+	err = pubsub.SubscribeJSON(
+		conn,
+		routing.ExchangePerilDirect,
+		routing.PauseKey+"."+gs.GetUsername(),
+		routing.PauseKey,
+		pubsub.SimpleQueueTransient,
+		handlerPause(gs),
+	)
+	if err != nil {
+		fmt.Printf("could not subscribe to pause: %v", err)
+	}
 
 forloop:
 	for {
@@ -53,10 +84,18 @@ forloop:
 				fmt.Println(err)
 				continue
 			}
-			err = pubsub.PublishJSON(channel, routing.ExchangePerilTopic, routing.ArmyMovesPrefix+"."+username, move)
+
+			err = pubsub.PublishJSON(
+				publishCh,
+				routing.ExchangePerilTopic,
+				routing.ArmyMovesPrefix+"."+move.Player.Username,
+				move,
+			)
 			if err != nil {
-				fmt.Println("move was successfully published")
+				fmt.Printf("error: %s\n", err)
+				continue
 			}
+			fmt.Printf("Moved %v units to %s\n", len(move.Units), move.ToLocation)
 		case "status":
 			gs.CommandStatus()
 		case "spam":

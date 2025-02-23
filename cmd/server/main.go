@@ -20,7 +20,7 @@ func main() {
 	defer conn.Close()
 	fmt.Printf("connection to RabbitMQ was successful\n")
 
-	channel, err := conn.Channel()
+	publishCh, err := conn.Channel()
 	if err != nil {
 		log.Fatal(fmt.Errorf("channel could not be created"))
 	}
@@ -41,13 +41,13 @@ forloop:
 		switch words[0] {
 		case "pause":
 			fmt.Print("Publish pause message\n")
-			err = pubsub.PublishJSON(channel, routing.ExchangePerilDirect, routing.PauseKey, routing.PlayingState{IsPaused: true})
+			err = pubsub.PublishJSON(publishCh, routing.ExchangePerilDirect, routing.PauseKey, routing.PlayingState{IsPaused: true})
 			if err != nil {
 				log.Fatal(fmt.Errorf("error in PublishJSON"))
 			}
 		case "resume":
 			fmt.Print("Publish resume message\n")
-			err = pubsub.PublishJSON(channel, routing.ExchangePerilDirect, routing.PauseKey, routing.PlayingState{IsPaused: false})
+			err = pubsub.PublishJSON(publishCh, routing.ExchangePerilDirect, routing.PauseKey, routing.PlayingState{IsPaused: false})
 			if err != nil {
 				log.Fatal(fmt.Errorf("error in PublishJSON"))
 			}

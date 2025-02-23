@@ -8,11 +8,18 @@ import (
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
+type ActType int
 type SimpleQueueType int
 
 const (
 	SimpleQueueDurable = iota
 	SimpleQueueTransient
+)
+
+const (
+	Ack = iota
+	NackRequeue
+	NackDiscard
 )
 
 func PublishJSON[T any](ch *amqp.Channel, exchange, key string, val T) error {
@@ -33,7 +40,7 @@ func SubscribeJSON[T any](
 	queueName,
 	key string,
 	simpleQueueType SimpleQueueType,
-	handler func(T),
+	handler func(T) ActType,
 ) error {
 	channel, _, err := DeclareAndBind(conn, exchange, queueName, key, int(simpleQueueType))
 	if err != nil {
@@ -51,8 +58,18 @@ func SubscribeJSON[T any](
 			if err != nil {
 				fmt.Printf("could not JSON decode message: %s", err)
 			}
-			handler(target)
-			msg.Ack(false)
+			ackType := handler(target)
+			switch ackType {
+			case Ack:
+				fmt.Print("Sending Ack\n")
+				msg.Ack(false)
+			case NackDiscard:
+				fmt.Print("Sending NackDiscard\n")
+				msg.Nack(false, false)
+			case NackRequeue:
+				fmt.Print("Sending NackRequeue\n")
+				msg.Nack(false, true)
+			}
 		}
 	}()
 	return nil
@@ -80,8 +97,7 @@ func DeclareAndBind(
 		exclusive = true
 	}
 	noWait = false
-
-	queue, err := channel.QueueDeclare(queueName, durable, autoDelete, exclusive, noWait, nil)
+	queue, err := channel.QueueDeclare(queueName, durable, autoDelete, exclusive, noWait, amqp.Table{"x-dead-letter-exchange": "peril_dlx"})
 	if err != nil {
 		return nil, amqp.Queue{}, fmt.Errorf("could not declare queue")
 	}
