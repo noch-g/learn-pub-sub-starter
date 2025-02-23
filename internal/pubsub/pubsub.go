@@ -39,21 +39,22 @@ func SubscribeJSON[T any](
 	if err != nil {
 		return fmt.Errorf("could not bind queueName: %s", err)
 	}
-	deliveryChan, err := channel.Consume(queueName, "", false, false, false, false, nil)
+	ch, err := channel.Consume(queueName, "", false, false, false, false, nil)
 	if err != nil {
 		return fmt.Errorf("could not consume channel: %s", err)
 	}
-	go func(channel <-chan amqp.Delivery) {
-		for delivery := range channel {
-			var message T
-			err = json.Unmarshal(delivery.Body, &message)
+	go func() {
+		defer channel.Close()
+		for msg := range ch {
+			var target T
+			err = json.Unmarshal(msg.Body, &target)
 			if err != nil {
 				fmt.Printf("could not JSON decode message: %s", err)
 			}
-			handler(message)
-			delivery.Ack(false)
+			handler(target)
+			msg.Ack(false)
 		}
-	}(deliveryChan)
+	}()
 	return nil
 }
 
