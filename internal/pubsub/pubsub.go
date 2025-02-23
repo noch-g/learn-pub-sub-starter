@@ -8,9 +8,11 @@ import (
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
+type SimpleQueueType int
+
 const (
-	SimpleQueueDurable   = 0
-	SimpleQueueTransient = 1
+	SimpleQueueDurable = iota
+	SimpleQueueTransient
 )
 
 func PublishJSON[T any](ch *amqp.Channel, exchange, key string, val T) error {
@@ -22,6 +24,36 @@ func PublishJSON[T any](ch *amqp.Channel, exchange, key string, val T) error {
 		ContentType: "application/json",
 		Body:        jsonBytes,
 	})
+	return nil
+}
+
+func SubscribeJSON[T any](
+	conn *amqp.Connection,
+	exchange,
+	queueName,
+	key string,
+	simpleQueueType SimpleQueueType,
+	handler func(T),
+) error {
+	channel, _, err := DeclareAndBind(conn, exchange, queueName, key, int(simpleQueueType))
+	if err != nil {
+		return fmt.Errorf("could not bind queueName: %s", err)
+	}
+	deliveryChan, err := channel.Consume(queueName, "", false, false, false, false, nil)
+	if err != nil {
+		return fmt.Errorf("could not consume channel: %s", err)
+	}
+	go func(channel <-chan amqp.Delivery) {
+		for delivery := range channel {
+			var message T
+			err = json.Unmarshal(delivery.Body, &message)
+			if err != nil {
+				fmt.Printf("could not JSON decode message: %s", err)
+			}
+			handler(message)
+			delivery.Ack(false)
+		}
+	}(deliveryChan)
 	return nil
 }
 
