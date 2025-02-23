@@ -39,6 +39,47 @@ func PublishGob[T any](ch *amqp.Channel, exchange, key string, val T) error {
 	return nil
 }
 
+func SubscribeGob[T any](
+	conn *amqp.Connection,
+	exchange,
+	queueName,
+	key string,
+	simpleQueueType SimpleQueueType,
+	handler func(T) ActType,
+) error {
+	channel, _, err := DeclareAndBind(conn, exchange, queueName, key, int(simpleQueueType))
+	if err != nil {
+		return fmt.Errorf("could not bind queueName: %s", err)
+	}
+	ch, err := channel.Consume(queueName, "", false, false, false, false, nil)
+	if err != nil {
+		return fmt.Errorf("could not consume channel: %s", err)
+	}
+	go func() {
+		defer channel.Close()
+		for msg := range ch {
+			var target T
+			buffer := bytes.NewBuffer(msg.Body)
+			decoder := gob.NewDecoder(buffer)
+
+			err = decoder.Decode(&target)
+			if err != nil {
+				fmt.Printf("could not gob decode message: %s", err)
+			}
+			ackType := handler(target)
+			switch ackType {
+			case Ack:
+				msg.Ack(false)
+			case NackDiscard:
+				msg.Nack(false, false)
+			case NackRequeue:
+				msg.Nack(false, true)
+			}
+		}
+	}()
+	return nil
+}
+
 func PublishJSON[T any](ch *amqp.Channel, exchange, key string, val T) error {
 	jsonBytes, err := json.Marshal(val)
 	if err != nil {
@@ -78,13 +119,10 @@ func SubscribeJSON[T any](
 			ackType := handler(target)
 			switch ackType {
 			case Ack:
-				fmt.Print("Sending Ack\n")
 				msg.Ack(false)
 			case NackDiscard:
-				fmt.Print("Sending NackDiscard\n")
 				msg.Nack(false, false)
 			case NackRequeue:
-				fmt.Print("Sending NackRequeue\n")
 				msg.Nack(false, true)
 			}
 		}

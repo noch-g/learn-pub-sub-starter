@@ -25,11 +25,17 @@ func main() {
 		log.Fatal(fmt.Errorf("channel could not be created"))
 	}
 
-	_, queue, err := pubsub.DeclareAndBind(conn, routing.ExchangePerilTopic, routing.GameLogSlug, routing.GameLogSlug+".*", pubsub.SimpleQueueDurable)
+	err = pubsub.SubscribeGob(
+		conn,
+		routing.ExchangePerilTopic,
+		routing.GameLogSlug,
+		routing.GameLogSlug+".*",
+		pubsub.SimpleQueueDurable,
+		handlerLogs(),
+	)
 	if err != nil {
-		log.Fatal(fmt.Errorf("could not subscribe to pause: %s", err))
+		fmt.Printf("could not subscribe to logs: %v", err)
 	}
-	fmt.Printf("Queue %v declared and bound!\n", queue.Name)
 
 	gamelogic.PrintServerHelp()
 forloop:
