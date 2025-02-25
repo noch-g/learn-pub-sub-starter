@@ -1,9 +1,9 @@
 package main
 
 import (
-	"github.com/bootdotdev/learn-pub-sub-starter/internal/gamelogic"
-	"github.com/bootdotdev/learn-pub-sub-starter/internal/pubsub"
-	"github.com/bootdotdev/learn-pub-sub-starter/internal/routing"
+	"github.com/noch-g/learn-pub-sub-starter/internal/gamelogic"
+	"github.com/noch-g/learn-pub-sub-starter/internal/pubsub"
+	"github.com/noch-g/learn-pub-sub-starter/internal/routing"
 )
 
 func handlerLogs() func(routing.GameLog) pubsub.ActType {

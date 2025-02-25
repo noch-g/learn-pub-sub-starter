@@ -6,9 +6,9 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/bootdotdev/learn-pub-sub-starter/internal/gamelogic"
-	"github.com/bootdotdev/learn-pub-sub-starter/internal/pubsub"
-	"github.com/bootdotdev/learn-pub-sub-starter/internal/routing"
+	"github.com/noch-g/learn-pub-sub-starter/internal/gamelogic"
+	"github.com/noch-g/learn-pub-sub-starter/internal/pubsub"
+	"github.com/noch-g/learn-pub-sub-starter/internal/routing"
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
