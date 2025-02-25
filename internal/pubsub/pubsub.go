@@ -51,6 +51,10 @@ func SubscribeGob[T any](
 	if err != nil {
 		return fmt.Errorf("could not bind queueName: %s", err)
 	}
+	err = channel.Qos(10, 0, false)
+	if err != nil {
+		return fmt.Errorf("could not limit channel prefetchCount: %v", err)
+	}
 	ch, err := channel.Consume(queueName, "", false, false, false, false, nil)
 	if err != nil {
 		return fmt.Errorf("could not consume channel: %s", err)
@@ -103,6 +107,10 @@ func SubscribeJSON[T any](
 	channel, _, err := DeclareAndBind(conn, exchange, queueName, key, int(simpleQueueType))
 	if err != nil {
 		return fmt.Errorf("could not bind queueName: %s", err)
+	}
+	err = channel.Qos(10, 0, false)
+	if err != nil {
+		return fmt.Errorf("could not limit channel prefetchCount: %v", err)
 	}
 	ch, err := channel.Consume(queueName, "", false, false, false, false, nil)
 	if err != nil {

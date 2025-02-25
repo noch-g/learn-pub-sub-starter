@@ -3,6 +3,8 @@ package main
 import (
 	"fmt"
 	"log"
+	"strconv"
+	"time"
 
 	"github.com/bootdotdev/learn-pub-sub-starter/internal/gamelogic"
 	"github.com/bootdotdev/learn-pub-sub-starter/internal/pubsub"
@@ -99,7 +101,25 @@ forloop:
 		case "status":
 			gs.CommandStatus()
 		case "spam":
-			fmt.Printf("Spamming is not allowed yet")
+			if len(words) != 2 {
+				fmt.Print("usage: spam <int>\n")
+				continue
+			}
+			nbSpam, err := strconv.Atoi(words[1])
+			if err != nil {
+				fmt.Printf("could not convert %s to int\n", words[1])
+				continue
+			}
+			var logMessage string
+			for range nbSpam {
+				logMessage = gamelogic.GetMaliciousLog()
+				fmt.Println(logMessage)
+				pubsub.PublishGob(publishCh, routing.ExchangePerilTopic, routing.GameLogSlug+"."+gs.GetUsername(), routing.GameLog{
+					CurrentTime: time.Now(),
+					Message:     logMessage,
+					Username:    gs.GetUsername(),
+				})
+			}
 		case "help":
 			gamelogic.PrintClientHelp()
 		case "quit":
